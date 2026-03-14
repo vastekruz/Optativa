@@ -1,0 +1,49 @@
+import java.util.concurrent.ForkJoinPool;
+import java.util.concurrent.RecursiveTask;
+
+public class Paralelismo2 {
+
+    static class SumaRecursiva extends RecursiveTask<Long> {
+        private long inicio, fin;
+        private final long UMBRAL = 250000;
+
+        public SumaRecursiva(long inicio, long fin) {
+            this.inicio = inicio;
+            this.fin = fin;
+        }
+
+        @Override
+        protected Long compute() {
+            if ((fin - inicio) <= UMBRAL) {
+                long suma = 0;
+                for (long i = inicio; i <= fin; i++) {
+                    suma += i;
+                }
+                System.out.println("Subtarea: " + inicio + "-" + fin + " = " + suma);
+                return suma;
+            } else {
+                long mid = (inicio + fin) / 2;
+                SumaRecursiva izq = new SumaRecursiva(inicio, mid);
+                SumaRecursiva der = new SumaRecursiva(mid + 1, fin);
+                
+                izq.fork();
+                long sumaRight = der.compute();
+                long sumaLeft = izq.join();
+                
+                return sumaLeft + sumaRight;
+            }
+        }
+    }
+
+    public static void main(String[] args) {
+        ForkJoinPool pool = new ForkJoinPool();
+        
+        long inicio = System.currentTimeMillis();
+        long resultado = pool.invoke(new SumaRecursiva(1, 1000000));
+        long fin = System.currentTimeMillis();
+
+        System.out.println("\nSuma total: " + resultado);
+        System.out.println("Tiempo: " + (fin - inicio) + " ms");
+        System.out.println("Esperado: " + (1000000L * 1000001L / 2));
+    }
+}

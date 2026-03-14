@@ -1,0 +1,119 @@
+import java.util.LinkedList;
+import java.util.Queue;
+
+public class Concurrencia2 {
+
+    static class Buffer {
+        private Queue<Integer> cola;
+        private int capacidad;
+        private Object lock = new Object();
+
+        public Buffer(int capacidad) {
+            this.capacidad = capacidad;
+            this.cola = new LinkedList<>();
+        }
+
+        public void producir(int valor, String productor) {
+            synchronized (lock) {
+                while (cola.size() >= capacidad) {
+                    try {
+                        System.out.println(productor + " espera (buffer lleno)");
+                        lock.wait();
+                    } catch (InterruptedException e) {
+                        Thread.currentThread().interrupt();
+                    }
+                }
+                cola.add(valor);
+                System.out.println(productor + " produjo: " + valor + " | Buffer: " + cola.size());
+                lock.notifyAll();
+            }
+        }
+
+        public int consumir(String consumidor) {
+            synchronized (lock) {
+                while (cola.isEmpty()) {
+                    try {
+                        System.out.println(consumidor + " espera (buffer vacío)");
+                        lock.wait();
+                    } catch (InterruptedException e) {
+                        Thread.currentThread().interrupt();
+                    }
+                }
+                int valor = cola.poll();
+                System.out.println(consumidor + " consumió: " + valor + " | Buffer: " + cola.size());
+                lock.notifyAll();
+                return valor;
+            }
+        }
+    }
+
+    static class Productor implements Runnable {
+        private Buffer buffer;
+        private String nombre;
+        private int inicio, fin;
+
+        public Productor(Buffer buffer, String nombre, int inicio, int fin) {
+            this.buffer = buffer;
+            this.nombre = nombre;
+            this.inicio = inicio;
+            this.fin = fin;
+        }
+
+        @Override
+        public void run() {
+            for (int i = inicio; i <= fin; i++) {
+                buffer.producir(i, nombre);
+                try {
+                    Thread.sleep(100);
+                } catch (InterruptedException e) {
+                    Thread.currentThread().interrupt();
+                }
+            }
+        }
+    }
+
+    static class Consumidor implements Runnable {
+        private Buffer buffer;
+        private String nombre;
+        private int cantidad;
+
+        public Consumidor(Buffer buffer, String nombre, int cantidad) {
+            this.buffer = buffer;
+            this.nombre = nombre;
+            this.cantidad = cantidad;
+        }
+
+        @Override
+        public void run() {
+            for (int i = 0; i < cantidad; i++) {
+                buffer.consumir(nombre);
+                try {
+                    Thread.sleep(150);
+                } catch (InterruptedException e) {
+                    Thread.currentThread().interrupt();
+                }
+            }
+        }
+    }
+
+    public static void main(String[] args) throws InterruptedException {
+        Buffer buffer = new Buffer(5);
+
+        Thread p1 = new Thread(new Productor(buffer, "Productor 1", 1, 10));
+        Thread p2 = new Thread(new Productor(buffer, "Productor 2", 11, 20));
+        Thread c1 = new Thread(new Consumidor(buffer, "Consumidor 1", 10));
+        Thread c2 = new Thread(new Consumidor(buffer, "Consumidor 2", 10));
+
+        p1.start();
+        p2.start();
+        c1.start();
+        c2.start();
+
+        p1.join();
+        p2.join();
+        c1.join();
+        c2.join();
+
+        System.out.println("\nProceso completado");
+    }
+}
